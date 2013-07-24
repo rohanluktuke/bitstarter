@@ -21,7 +21,9 @@ References:
    - https://developer.mozilla.org/en-US/docs/JSON#JSON_in_Firefox_2
 */
 
+var rest = require('restler');
 var fs = require('fs');
+var sys = require('util');
 var program = require('commander');
 var cheerio = require('cheerio');
 var HTMLFILE_DEFAULT = "index.html";
@@ -40,20 +42,39 @@ var cheerioHtmlFile = function(htmlfile) {
     return cheerio.load(fs.readFileSync(htmlfile));
 };
 
+var cheerioHtmlString = function(htmlString) {
+//	console.log(htmlString);
+	return cheerio.load(htmlString);
+}
+
 var loadChecks = function(checksfile) {
     return JSON.parse(fs.readFileSync(checksfile));
 };
 
 var checkHtmlFile = function(htmlfile, checksfile) {
     $ = cheerioHtmlFile(htmlfile);
-    var checks = loadChecks(checksfile).sort();
-    var out = {};
+	var out = checkHtmlString($, checksfile);
+    return out;
+};
+
+var checkHtmlFile2 = function(htmlString, checksfile) {
+//	console.log('ceckHmlFile2');
+//	console.log(htmlString);
+	$ = cheerioHtmlString(htmlString);
+	var out = checkHtmlString($, checksfile);
+	return out;
+}
+
+var checkHtmlString = function(htmlString, checksfile) {
+	var checks = loadChecks(checksfile).sort();
+    var out = {};	
+	//console.log(htmlString.html());
     for(var ii in checks) {
-        var present = $(checks[ii]).length > 0;
+        var present = htmlString(checks[ii]).length > 0;
         out[checks[ii]] = present;
     }
     return out;
-};
+}
 
 var clone = function(fn) {
     // Workaround for commander.js issue.
@@ -61,14 +82,89 @@ var clone = function(fn) {
     return fn.bind({});
 };
 
+var buildfn = function() {
+	console.log('in buildfn');
+	var response2file = function(result, response) {
+		console.log('building response2file');
+		console.log(result);
+		console.log(response);
+		if(result instanceof Error) {
+			console.error('Error: ' + util.format(response.message));
+		}else{
+			console.error("wrote file");
+			fs.writeFile('temp.html', result);
+		}
+	};
+	return response2file;
+
+
+
+
+
+/*
+
+    console.log('downloadInTemp' + url);
+	rest.get(url).on('complete', function(result) {
+        if(result instanceof Error) {
+            console.log('Error downloading file: ' + result.message);
+        } else {
+			console.log('no error');	
+			console.log(result);
+            fs.writeFile('temp.html', result, function(err){
+                if(err) throw err;
+                console.log('wrote file');
+            });
+        }
+    });
+*/
+};
+
+var savedResult;
+
 if(require.main == module) {
     program
         .option('-c, --checks <check_file>', 'Path to checks.json', clone(assertFileExists), CHECKSFILE_DEFAULT)
-        .option('-f, --file <html_file>', 'Path to index.html', clone(assertFileExists), HTMLFILE_DEFAULT)
+        .option('-f, --file <html_file>', 'Path to index.html', clone(assertFileExists))
+		.option('-u, --url <url_string>', 'URL of file')
         .parse(process.argv);
-    var checkJson = checkHtmlFile(program.file, program.checks);
-    var outJson = JSON.stringify(checkJson, null, 4);
-    console.log(outJson);
+
+	if(program.url)
+		console.log('URL defined');
+
+	if(program.file){
+    	console.log('file found');
+		var checkJson = checkHtmlFile(program.file, program.checks);
+
+    	var outJson = JSON.stringify(checkJson, null, 4);
+
+    	console.log(outJson);
+	}else if(program.url){
+		console.log('URL found : %s', program.url);
+		//downloadFileInTemp(program.url);
+		//var response2file = buildfn();
+		//var savedResult;
+		rest.get(program.url).on('complete', function(result) {
+			if(result instanceof Error) {
+				console.error('Error')
+			}else{
+				//fs.writeFileSync('temp.html', result);
+				//for(var i=0; i<100000; i++);
+				savedResult = result;
+				
+				var checkJson = checkHtmlFile2(savedResult, program.checks);
+				//console.log(savedResult);
+    			var outJson = JSON.stringify(checkJson, null, 4);
+    			console.log(outJson);
+			}	
+		});
+		//console.log(savedResult == undefined);
+		//var checkJson = checkHtmlFile2(savedResult, program.checks);
+	}
+    //var outJson = JSON.stringify(checkJson, null, 4);
+    //console.log(outJson);
+
+	
+
 } else {
     exports.checkHtmlFile = checkHtmlFile;
 }
