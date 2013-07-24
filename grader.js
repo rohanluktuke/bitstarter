@@ -82,45 +82,6 @@ var clone = function(fn) {
     return fn.bind({});
 };
 
-var buildfn = function() {
-	console.log('in buildfn');
-	var response2file = function(result, response) {
-		console.log('building response2file');
-		console.log(result);
-		console.log(response);
-		if(result instanceof Error) {
-			console.error('Error: ' + util.format(response.message));
-		}else{
-			console.error("wrote file");
-			fs.writeFile('temp.html', result);
-		}
-	};
-	return response2file;
-
-
-
-
-
-/*
-
-    console.log('downloadInTemp' + url);
-	rest.get(url).on('complete', function(result) {
-        if(result instanceof Error) {
-            console.log('Error downloading file: ' + result.message);
-        } else {
-			console.log('no error');	
-			console.log(result);
-            fs.writeFile('temp.html', result, function(err){
-                if(err) throw err;
-                console.log('wrote file');
-            });
-        }
-    });
-*/
-};
-
-var savedResult;
-
 if(require.main == module) {
     program
         .option('-c, --checks <check_file>', 'Path to checks.json', clone(assertFileExists), CHECKSFILE_DEFAULT)
@@ -132,39 +93,25 @@ if(require.main == module) {
 		console.log('URL defined');
 
 	if(program.file){
-    	console.log('file found');
+    	console.log('file defined');
 		var checkJson = checkHtmlFile(program.file, program.checks);
-
     	var outJson = JSON.stringify(checkJson, null, 4);
-
     	console.log(outJson);
 	}else if(program.url){
 		console.log('URL found : %s', program.url);
-		//downloadFileInTemp(program.url);
-		//var response2file = buildfn();
-		//var savedResult;
 		rest.get(program.url).on('complete', function(result) {
 			if(result instanceof Error) {
 				console.error('Error')
 			}else{
-				//fs.writeFileSync('temp.html', result);
-				//for(var i=0; i<100000; i++);
-				savedResult = result;
+				//savedResult = result;
 				
-				var checkJson = checkHtmlFile2(savedResult, program.checks);
+				var checkJson = checkHtmlFile2(result, program.checks);
 				//console.log(savedResult);
     			var outJson = JSON.stringify(checkJson, null, 4);
     			console.log(outJson);
 			}	
 		});
-		//console.log(savedResult == undefined);
-		//var checkJson = checkHtmlFile2(savedResult, program.checks);
 	}
-    //var outJson = JSON.stringify(checkJson, null, 4);
-    //console.log(outJson);
-
-	
-
 } else {
     exports.checkHtmlFile = checkHtmlFile;
 }
